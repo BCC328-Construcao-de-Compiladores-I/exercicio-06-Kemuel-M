@@ -1,11 +1,18 @@
 
 import L.L2.Interpreter.Interp
 import L.L2.Frontend.Syntax
+import L.L2.Frontend.Lexer (Token(..), Lexeme(..), lexer)
+import L.L2.Frontend.Parser (parserL2)
+import L.L2.Frontend.TokenFormat (formatTok)
+import L.L2.Frontend.TypeCheck (typeCheck)
+import L.L2.Backend.V1Codegen (v1Codegen)
+import L.L2.Backend.CCodegen (cL2Codegen)
 import Utils.Pretty
 
 import System.Environment
 import System.FilePath
 import System.Process
+import System.Exit
 
 main :: IO ()
 main = do
@@ -33,28 +40,74 @@ runWithOptions opts = case opts of
 -- Implement the function to do lexical analysis for L2 programs and outputs the tokens
 
 lexerOnly :: FilePath -> IO ()
-lexerOnly file = error "Not implemented!"
+lexerOnly file = do
+  src <- readFile file
+  let toks = lexer src
+  mapM_ (putStrLn . formatTok) toks
 
 
 -- Implement the function to do syntax analysis for L2 programs and outputs the syntax tree
 
 parserOnly :: FilePath -> IO ()
-parserOnly file = error "Not implemented!"
+parserOnly file = do
+  src <- readFile file
+  case parserL2 src of
+    Left err -> putStrLn err
+    Right ast -> putStrLn (show ast)
 
 -- Implement the whole interpreter pipeline: lexical and syntax analysis and then interpret the program
 
 interpret :: FilePath -> IO ()
-interpret file = error "Not implemented!"
+interpret file = do
+  src <- readFile file
+  case parserL2 src of
+    Left err -> putStrLn err
+    Right ast -> do
+      case typeCheck ast of
+        Left err -> putStrLn err
+        Right checkedAst -> do
+          result <- evalL2 checkedAst
+          case result of
+            Left err -> putStrLn err
+            Right _ -> return ()
 
 -- Implement the whole compiler pipeline: lexical, syntax and semantic analysis and then generate v1 instructions from the program.
 
 v1Compiler :: FilePath -> IO ()
-v1Compiler file = error "Not implemented!"
+v1Compiler file = do
+  src <- readFile file
+  case parserL2 src of
+    Left err -> putStrLn err
+    Right ast -> do
+      case typeCheck ast of
+        Left err -> putStrLn err
+        Right checkedAst -> do
+          let v1Code = v1Codegen checkedAst
+          let outputFile = replaceExtension file ".v1"
+          writeFile outputFile (pretty v1Code)
+          putStrLn $ "V1 code generated: " ++ outputFile
 
 -- Implement the whole executable compiler, using C source and GCC.
 
 cCompiler :: FilePath -> IO ()
-cCompiler file = error "Not implemented!"
+cCompiler file = do
+  src <- readFile file
+  case parserL2 src of
+    Left err -> putStrLn err
+    Right ast -> do
+      case typeCheck ast of
+        Left err -> putStrLn err
+        Right checkedAst -> do
+          let cCode = cL2Codegen checkedAst
+          let cFile = replaceExtension file ".c"
+          let exeFile = replaceExtension file ""
+          writeFile cFile cCode
+          putStrLn $ "C code generated: " ++ cFile
+          -- Compile with GCC
+          result <- system $ "gcc -o " ++ exeFile ++ " " ++ cFile
+          case result of
+            ExitSuccess -> putStrLn $ "Executable generated: " ++ exeFile
+            ExitFailure code -> putStrLn $ "GCC compilation failed with exit code: " ++ show code
 
 -- help message
 
@@ -80,6 +133,7 @@ data Option
   | VM FilePath
   | C FilePath
   deriving (Eq, Show)
+
 
 parseOptions :: [String] -> [Option]
 parseOptions args =

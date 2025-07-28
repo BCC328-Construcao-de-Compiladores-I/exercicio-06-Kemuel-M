@@ -1,0 +1,14 @@
+read("Digite o primeiro numero: ", a);
+read("Digite o segundo numero: ", b);
+
+def x := a + b in
+  print(x);
+  y := x * 2 ;
+  print(y);
+  def x := y - a in
+    print(x);
+  end
+  print(x);
+end
+
+print("Processo concluido");

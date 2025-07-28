@@ -1,8 +1,8 @@
-module L.L1.Frontend.RecursiveParser where 
+module L.L2.Frontend.Parser where 
 
 import Control.Applicative (empty)
 
-import L.L1.Frontend.Syntax
+import L.L2.Frontend.Syntax
 import Utils.Value
 import Utils.Var
 
@@ -40,7 +40,7 @@ parens = between (symbol "(") (symbol ")")
 
 -- | Reserved words that cannot be used as identifiers.
 rwords :: [String]
-rwords = ["read", "print"]
+rwords = ["read", "print", "def", "in", "end"]
 
 -- | Parse an identifier that is not a reserved word.
 identifier :: Parser String
@@ -60,11 +60,11 @@ stringLiteral :: Parser String
 stringLiteral = lexeme (char '"' >> manyTill L.charLiteral (char '"'))
 
 -- | Expression parser.
-expr :: Parser E1
+expr :: Parser E2
 expr = makeExprParser term operatorTable
 
 -- | Parse a factor of an expression.
-term :: Parser E1
+term :: Parser E2
 term = choice
   [ LVal . VInt <$> integer
   , LVal . VStr <$> stringLiteral
@@ -72,10 +72,10 @@ term = choice
   , parens expr
   ]
 
-binary :: String -> (E1 -> E1 -> E1) -> Operator Parser E1
+binary :: String -> (E2 -> E2 -> E2) -> Operator Parser E2
 binary name f = InfixL (f <$ symbol name)
 
-operatorTable :: [[Operator Parser E1]]
+operatorTable :: [[Operator Parser E2]]
 operatorTable =
   [ [ binary "*" LMul
     , binary "/" LDiv
@@ -85,10 +85,20 @@ operatorTable =
     ]
   ]
 
--- | Statement parser terminated by a semicolon.
-statement :: Parser S1
-statement = choice [try readStmt, try printStmt, assignStmt] <* symbol ";"
+-- | Statement parser.
+statement :: Parser S2
+statement = choice [try defStmt, try readStmt, try printStmt, assignStmt]
   where
+    defStmt = do
+      _ <- symbol "def"
+      v <- identifier
+      _ <- symbol ":="
+      e <- expr
+      _ <- symbol "in"
+      stmts <- many statement
+      _ <- symbol "end"
+      pure (Def (Var v) e stmts)
+
     readStmt = do
       _ <- symbol "read"
       (msg, var) <- parens $ do
@@ -96,25 +106,28 @@ statement = choice [try readStmt, try printStmt, assignStmt] <* symbol ";"
         _ <- symbol ","
         v <- identifier
         pure (s, Var v)
+      _ <- symbol ";"
       pure (LRead msg var)
 
     printStmt = do
       _ <- symbol "print"
       e <- parens expr
+      _ <- symbol ";"
       pure (LPrint e)
 
     assignStmt = do
       v <- identifier
       _ <- symbol ":="
       e <- expr
+      _ <- symbol ";"
       pure (LAssign (Var v) e)
 
--- | Parse a complete L1 program.
-program :: Parser L1
-program = between spaceConsumer eof (L1 <$> many statement)
+-- | Parse a complete L2 program.
+program :: Parser L2
+program = between spaceConsumer eof (L2 <$> many statement)
 
 -- | Top level parser function used externally.
-parserRecursiveL1 :: String -> Either String L1
-parserRecursiveL1 src = case parse program "<l1>" src of
+parserL2 :: String -> Either String L2
+parserL2 src = case parse program "<l2>" src of
   Left err -> Left (errorBundlePretty err)
   Right ast -> Right ast

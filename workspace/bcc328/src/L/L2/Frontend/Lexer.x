@@ -1,6 +1,6 @@
 {
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
-module L.L1.Frontend.Lexer (Token (..), Lexeme (..), lexer) where 
+module L.L2.Frontend.Lexer (Token (..), Lexeme (..), lexer) where 
 }
 
 %wrapper "posn"
@@ -28,6 +28,9 @@ tokens :-
       "*"           {simpleToken TTimes}
       "/"           {simpleToken TDiv}
       -- Palavras-chave (devem vir antes de @identifier para evitar conflitos)
+      "def"         {simpleToken TDef}
+      "in"          {simpleToken TIn}
+      "end"         {simpleToken TEnd}
       "read"        {simpleToken TRead}
       "print"       {simpleToken TPrint}
       -- Tokens com valor
@@ -57,6 +60,9 @@ data Lexeme
   | TAssign                            -- :=
   | TSemicolon                         -- ;
   | TComma                             -- ,
+  | TDef                               -- def
+  | TIn                                -- in
+  | TEnd                               -- end
   | TRead                              -- read
   | TPrint                             -- print
   | TEOF                               -- Fim de arquivo

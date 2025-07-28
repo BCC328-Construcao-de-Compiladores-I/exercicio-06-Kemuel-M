@@ -1,0 +1,4 @@
+def x := 1 in
+  x := 2;
+  print(x);
+end
